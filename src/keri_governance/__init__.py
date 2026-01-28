@@ -34,6 +34,14 @@ from keri_governance.primitives import (
     OPERATOR_STRENGTH,
     operator_name,
     strength_name,
+    # Hardman LoA integration
+    LoALevel,
+    LOA_NAMES,
+    loa_satisfies,
+    loa_name,
+    loa_from_credential,
+    LOA_TO_STRENGTH,
+    loa_to_strength,
 )
 
 from keri_governance.schema import (
@@ -112,6 +120,14 @@ __all__ = [
     "OPERATOR_STRENGTH",
     "operator_name",
     "strength_name",
+    # Hardman LoA
+    "LoALevel",
+    "LOA_NAMES",
+    "loa_satisfies",
+    "loa_name",
+    "loa_from_credential",
+    "LOA_TO_STRENGTH",
+    "loa_to_strength",
     # Schema
     "GovernanceFramework",
     "ConstraintRule",

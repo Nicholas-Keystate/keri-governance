@@ -16,7 +16,14 @@ by @NI2I or @ANY (weaker).
 from dataclasses import dataclass, field
 from typing import Optional
 
-from keri_governance.primitives import EdgeOperator, operator_satisfies  # noqa: F401
+from keri_governance.primitives import (
+    EdgeOperator,
+    operator_satisfies,
+    LoALevel,
+    loa_satisfies,
+    loa_name,
+    loa_from_credential,
+)  # noqa: F401
 from keri_governance.schema import (
     GovernanceFramework,
     ConstraintRule,
@@ -265,3 +272,76 @@ class ConstraintChecker:
         for rule in rules:
             constraints.update(rule.field_constraints)
         return constraints
+
+    def check_loa(
+        self,
+        credential: dict,
+        required_loa: LoALevel,
+    ) -> CheckResult:
+        """
+        Check if a credential meets the required LoA level.
+
+        Used for Hardman's progressive assurance ladder enforcement.
+        The ratchet is monotonic - higher levels satisfy lower requirements.
+
+        Args:
+            credential: The credential dict to check
+            required_loa: Minimum required LoA level
+
+        Returns:
+            CheckResult with violation if LoA is insufficient
+        """
+        result = CheckResult(framework_said=self._framework.said)
+
+        actual_loa = loa_from_credential(credential)
+
+        if not loa_satisfies(actual_loa, required_loa):
+            result.allowed = False
+            result.violations.append(ConstraintViolation(
+                rule_name="loa_minimum",
+                message=(
+                    f"Credential LoA {actual_loa.value} ({loa_name(actual_loa)}) "
+                    f"does not satisfy required LoA {required_loa.value} ({loa_name(required_loa)})"
+                ),
+                enforcement=RuleEnforcement.STRICT,
+            ))
+
+        return result
+
+    def check_loa_chain(
+        self,
+        credentials: list[dict],
+        required_loa: LoALevel,
+    ) -> CheckResult:
+        """
+        Check if all credentials in a chain meet the required LoA level.
+
+        For progressive assurance chains, each credential in the path
+        must meet the minimum LoA requirement.
+
+        Args:
+            credentials: List of credentials in the chain
+            required_loa: Minimum required LoA level for all
+
+        Returns:
+            CheckResult with violations for any credentials below requirement
+        """
+        result = CheckResult(framework_said=self._framework.said)
+
+        for idx, cred in enumerate(credentials):
+            actual_loa = loa_from_credential(cred)
+
+            if not loa_satisfies(actual_loa, required_loa):
+                cred_said = cred.get("d", f"credential[{idx}]")
+                result.allowed = False
+                result.violations.append(ConstraintViolation(
+                    rule_name="loa_chain_minimum",
+                    message=(
+                        f"Credential {cred_said[:16]}... at position {idx} "
+                        f"has LoA {actual_loa.value} ({loa_name(actual_loa)}), "
+                        f"but chain requires LoA {required_loa.value} ({loa_name(required_loa)})"
+                    ),
+                    enforcement=RuleEnforcement.STRICT,
+                ))
+
+        return result
