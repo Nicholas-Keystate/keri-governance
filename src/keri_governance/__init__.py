@@ -67,6 +67,7 @@ from keri_governance.compiler import (
 
 from keri_governance.resolver import (
     FrameworkResolver,
+    KeriFrameworkResolver,
     VersionChain,
 )
 
@@ -145,6 +146,7 @@ __all__ = [
     "compile_field_expression",
     # Resolver
     "FrameworkResolver",
+    "KeriFrameworkResolver",
     "VersionChain",
     # Evolution
     "GovernanceEvolution",

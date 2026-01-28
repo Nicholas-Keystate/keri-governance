@@ -247,3 +247,183 @@ class FrameworkResolver:
         """
         chain = self.resolve_chain(framework_said)
         return chain.active
+
+
+class KeriFrameworkResolver:
+    """
+    Bridge between keripy Reger and FrameworkResolver.
+
+    Wraps a running Reger instance to provide credential resolution
+    that can be passed to FrameworkResolver as its credential_resolver.
+
+    Usage:
+        from keri.vdr.viring import Reger
+
+        # With existing Reger
+        reger = Reger(name="my-registry")
+        keri_resolver = KeriFrameworkResolver(reger=reger)
+
+        # Create FrameworkResolver with KERI backend
+        resolver = FrameworkResolver(credential_resolver=keri_resolver.resolve)
+        framework = resolver.resolve("EFrameworkSAID...")
+
+        # Or use convenience factory
+        resolver = KeriFrameworkResolver.create_framework_resolver(reger)
+    """
+
+    def __init__(self, reger=None, hby=None):
+        """
+        Initialize with KERI infrastructure.
+
+        Args:
+            reger: keripy Reger instance for credential storage
+            hby: Optional Habery instance for additional lookups
+        """
+        self._reger = reger
+        self._hby = hby
+
+    @classmethod
+    def from_runtime(cls) -> "KeriFrameworkResolver":
+        """
+        Create resolver from the current KERI runtime environment.
+
+        Raises:
+            RuntimeError: If no KERI runtime is available
+        """
+        try:
+            from keri_sec.keri.runtime import get_keri_runtime
+            runtime = get_keri_runtime()
+            if runtime and runtime.available and runtime.rgy:
+                return cls(reger=runtime.rgy.reger, hby=runtime.hby)
+        except ImportError:
+            pass
+
+        raise RuntimeError(
+            "No KERI runtime available.\n"
+            "Initialize KERI infrastructure first or provide reger explicitly."
+        )
+
+    @classmethod
+    def create_framework_resolver(cls, reger=None, hby=None) -> FrameworkResolver:
+        """
+        Convenience factory to create a FrameworkResolver with KERI backend.
+
+        Args:
+            reger: keripy Reger instance
+            hby: Optional Habery instance
+
+        Returns:
+            FrameworkResolver configured to resolve from KERI Reger
+        """
+        keri_resolver = cls(reger=reger, hby=hby)
+        return FrameworkResolver(credential_resolver=keri_resolver.resolve)
+
+    def resolve(self, said: str) -> Optional[dict]:
+        """
+        Resolve a credential SAID from the Reger.
+
+        This method is designed to be passed as the credential_resolver
+        callable to FrameworkResolver.
+
+        Args:
+            said: SAID of the credential to resolve
+
+        Returns:
+            Credential dict if found, None otherwise
+        """
+        if self._reger is None:
+            return None
+
+        try:
+            # Try to get credential from Reger
+            # keripy Reger stores credentials by SAID
+            creder = self._get_credential(said)
+            if creder is None:
+                return None
+
+            # Extract raw dict from credential object
+            if hasattr(creder, 'sad'):
+                return creder.sad
+            if hasattr(creder, 'ked'):
+                return creder.ked
+            if hasattr(creder, 'raw'):
+                import json
+                return json.loads(creder.raw)
+            if isinstance(creder, dict):
+                return creder
+
+            return None
+
+        except Exception:
+            return None
+
+    def _get_credential(self, said: str):
+        """
+        Internal: fetch credential from Reger by SAID.
+
+        The keripy Reger uses various methods depending on version.
+        This tries common patterns.
+        """
+        # Try saved credentials database
+        if hasattr(self._reger, 'saved'):
+            saider = self._reger.saved.get(keys=said)
+            if saider is not None:
+                # Get the actual credential content
+                if hasattr(self._reger, 'creds'):
+                    creder = self._reger.creds.get(keys=(said,))
+                    if creder is not None:
+                        return creder
+
+        # Try credential database directly
+        if hasattr(self._reger, 'creds'):
+            creder = self._reger.creds.get(keys=(said,))
+            if creder is not None:
+                return creder
+
+        # Try cloneCred method (returns serder + prefixer + seqner + saider)
+        if hasattr(self._reger, 'cloneCred'):
+            try:
+                result = self._reger.cloneCred(said)
+                if result and len(result) >= 1:
+                    return result[0]  # First element is the serder/creder
+            except (KeyError, ValueError):
+                pass
+
+        return None
+
+    def verify_tel_status(self, credential_said: str, registry_said: str) -> str:
+        """
+        Check TEL status for a credential.
+
+        Args:
+            credential_said: SAID of credential to check
+            registry_said: SAID of the registry
+
+        Returns:
+            "valid", "revoked", or "unknown"
+        """
+        if self._reger is None:
+            return "unknown"
+
+        try:
+            from keri.core import coring
+
+            tevers = self._reger.tevers if hasattr(self._reger, 'tevers') else None
+            if tevers is None or registry_said not in tevers:
+                return "unknown"
+
+            tever = tevers[registry_said]
+            state = tever.vcState(credential_said)
+
+            if state is None:
+                return "unknown"
+
+            if state.et in (coring.Ilks.rev, coring.Ilks.brv):
+                return "revoked"
+            elif state.et in (coring.Ilks.iss, coring.Ilks.bis):
+                return "valid"
+
+            return "unknown"
+
+        except Exception:
+            return "unknown"
