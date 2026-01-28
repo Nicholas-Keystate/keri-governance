@@ -8,7 +8,7 @@ Two partial orders for the KERI governance ecosystem:
    Used by KGQL for query-time governance of credential traversal.
 
 2. StrengthLevel: Artifact verification strength (TEL > KEL > SAID > ANY)
-   Used by governed-stack for artifact lifecycle governance.
+   Used by keri-sec for artifact lifecycle governance.
 
 Both follow the same algebraic pattern: a satisfies b iff strength(a) >= strength(b).
 """

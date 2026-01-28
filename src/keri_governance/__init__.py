@@ -3,7 +3,7 @@
 keri-governance - KERI Governance Engine.
 
 Standalone governance infrastructure for the KERI ecosystem.
-Consumed by KGQL (query-time governance), governed-stack (artifact governance),
+Consumed by KGQL (query-time governance), keri-sec (artifact governance),
 and any other KERI application needing constraint evaluation.
 
 Provides:

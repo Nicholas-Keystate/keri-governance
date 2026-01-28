@@ -2,14 +2,14 @@
 
 Standalone governance engine for the KERI ecosystem.
 
-Constraint algebra, governance frameworks, and cardinal rules for artifact lifecycle. Consumed by KGQL (query-time governance) and governed-stack (artifact governance).
+Constraint algebra, governance frameworks, and cardinal rules for artifact lifecycle. Consumed by KGQL (query-time governance) and keri-sec (artifact governance).
 
 ## Two Halves
 
 | Half | Governs | Consumer |
 |------|---------|----------|
 | **Governance Frameworks** | Credential graph traversal | KGQL |
-| **Cardinal Rules Engine** | Artifact lifecycle operations | governed-stack |
+| **Cardinal Rules Engine** | Artifact lifecycle operations | keri-sec |
 
 Both share the same constraint algebra: partial orders where `a` satisfies `b` iff `strength(a) >= strength(b)`.
 
